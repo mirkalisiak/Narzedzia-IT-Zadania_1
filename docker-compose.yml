@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: mydatabase
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    networks:
+      - django_postgres_net
+    # Brak sekcji "ports" celowo blokuje eksponowanie bazy na zewnątrz
+
+  web:
+    build: . 
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_HOST=db
+      - DB_NAME=mydatabase
+      - DB_USER=myuser
+      - DB_PASS=mypassword
+    depends_on:
+      - db
+    networks:
+      - django_postgres_net
+      - django_pgadmin_net
+
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: root
+    ports:
+      - "5050:80"
+    networks:
+      - django_pgadmin_net
+      - django_postgres_net 
+
+networks:
+  django_postgres_net: 
+  django_pgadmin_net:
