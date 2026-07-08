@@ -1,0 +1,15 @@
+FROM jenkins/inbound-agent:latest
+
+USER root
+
+# Install useful tools
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    docker.io \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Allow jenkins user to use docker
+RUN usermod -aG docker jenkins
+
+USER jenkins

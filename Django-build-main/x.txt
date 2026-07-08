@@ -1,0 +1,125 @@
+1 Struct of project:
+myproject/
+│
+├── backend/
+│   ├── manage.py
+│   ├── myproject/
+│   ├── api/
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── docker-compose.yml
+└── .env
+
+2. backend/Dockerfile
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+WORKDIR /app
+
+# dependencies systemowe (opcjonalne, ale dobre)
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["gunicorn", "myproject.wsgi:application", "--bind", "0.0.0.0:8000"]
+
+3. requirements.txt
+Django>=5.0
+djangorestframework
+gunicorn
+psycopg2-binary
+
+4.docker-compose.yml
+
+version: "3.9"
+
+services:
+  web:
+    build: ./backend
+    container_name: django_api
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - ./backend:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - db
+
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_DB: mydb
+      POSTGRES_USER: myuser
+      POSTGRES_PASSWORD: mypassword
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  postgres_data:
+
+
+5. .env
+DEBUG=1
+SECRET_KEY=supersecretkey
+DB_NAME=mydb
+DB_USER=myuser
+DB_PASSWORD=mypassword
+DB_HOST=db
+DB_PORT=5432
+
+
+6. settings.py
+
+import os
+
+DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.getenv('DB_NAME'),
+        'USER': os.getenv('DB_USER'),
+        'PASSWORD': os.getenv('DB_PASSWORD'),
+        'HOST': os.getenv('DB_HOST'),
+        'PORT': os.getenv('DB_PORT'),
+    }
+}
+
+7.DRF setup
+
+INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+
+    'rest_framework',
+    'api',
+]
+
+8. build + start
+
+docker compose up --build
+docker compose exec web python manage.py makemigrations
+docker compose exec web python manage.py migrate
+docker compose exec web python manage.py createsuperuser
+
+Efekt końcowy
+API:
+👉 http://localhost:8000/
+Admin Django:
+👉 http://localhost:8000/admin/
+PostgreSQL:
+👉 localhost:5432

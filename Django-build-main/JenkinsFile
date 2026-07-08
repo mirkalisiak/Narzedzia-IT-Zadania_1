@@ -1,0 +1,68 @@
+pipeline {
+    agent any
+
+    environment {
+        IMAGE_NAME = "django-api"
+        COMPOSE_FILE = "docker-compose.yml"
+    }
+
+    stages {
+
+        stage('Checkout') {
+            steps {
+                echo '📥 Pobieranie kodu z repo...'
+                checkout scm
+            }
+        }
+
+        stage('Build Docker Images') {
+            steps {
+                echo '🐳 Budowanie obrazów Docker...'
+                sh 'docker compose -f $COMPOSE_FILE build'
+            }
+        }
+
+        stage('Run Tests') {
+            steps {
+                echo '🧪 Uruchamianie testów Django...'
+                sh '''
+                docker compose -f $COMPOSE_FILE run --rm web python manage.py test
+                '''
+            }
+        }
+
+        stage('Database Migrations Check') {
+            steps {
+                echo '🗄 Sprawdzanie migracji...'
+                sh '''
+                docker compose -f $COMPOSE_FILE run --rm web python manage.py makemigrations --check --dry-run
+                '''
+            }
+        }
+
+        stage('Deploy (Local / Server)') {
+            steps {
+                echo '🚀 Uruchamianie aplikacji...'
+                sh '''
+                docker compose -f $COMPOSE_FILE down
+                docker compose -f $COMPOSE_FILE up -d
+                '''
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '✅ Pipeline zakończony sukcesem!'
+        }
+
+        failure {
+            echo '❌ Pipeline nie powiódł się!'
+        }
+
+        always {
+            echo '📌 Czyszczenie zasobów...'
+            sh 'docker system prune -f'
+        }
+    }
+}
